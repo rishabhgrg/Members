@@ -15,21 +15,26 @@ module.exports = function ({
             return member;
         }
 
+        const stripeSubscriptions = await getActiveSubscriptionsForMember(member);
+        return Object.assign(member, stripeSubscriptions);
+    }
+
+    async function getActiveSubscriptionsForMember(member) {
         if (!stripe) {
-            return Object.assign(member, {
+            return {
                 stripe: {
                     subscriptions: []
                 }
-            });
+            };
         }
         try {
             const subscriptions = await stripe.getActiveSubscriptions(member);
 
-            return Object.assign(member, {
+            return {
                 stripe: {
                     subscriptions
                 }
-            });
+            };
         } catch (err) {
             console.log(err);
             return null;
@@ -54,8 +59,16 @@ module.exports = function ({
         return updateMember(data, options);
     }
 
-    async function list(options) {
-        return listMembers(options);
+    async function list(options, includeSubscriptions = false) {
+        const members = listMembers(options);
+        if (!includeSubscriptions) {
+            return members;
+        }
+        const membersWithSubscription = await Promise.each(members, async (member) => {
+            const stripeSubscriptions = await getActiveSubscriptionsForMember(member);
+            return Object.assign(member, stripeSubscriptions);
+        });
+        return membersWithSubscription;
     }
 
     async function create(data, options = {}) {
